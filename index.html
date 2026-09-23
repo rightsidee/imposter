@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tebak Si Imposter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-body: #1e123a;
+            --bg-card: #2f1d58;
+            --input-bg: #241646;
+            --input-border: #4a3482;
+            --text-main: #ffffff;
+            --text-sub: #b0a3d4;
+            --yellow: #ffd12b;
+            --pink: #f9386c;
+            --cyan: #00e2ff;
+            --orange: #ff8c00;
+            --green: #2ecc71;
+            --red: #e74c3c;
+        }
+
+        * { box-sizing: border-box; font-family: 'Nunito', sans-serif; }
+        
+        body { 
+            background-color: var(--bg-body); color: var(--text-main); 
+            margin: 0; padding: 10px; display: flex; 
+            justify-content: center; min-height: 100vh;
+        }
+
+        .app-container { width: 100%; max-width: 450px; margin-top: 2vh; margin-bottom: 5vh; }
+        .screen { 
+            display: none; background-color: var(--bg-card); 
+            padding: 30px 25px; border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
+        }
+        .screen.active { display: block; }
+
+        h1 { color: var(--yellow); margin-top: 0; margin-bottom: 5px; font-size: 28px; text-align: center; font-weight: 800; }
+        h2 { color: var(--text-main); font-size: 20px; margin-bottom: 20px; text-align: center; }
+        .subtitle { color: var(--text-sub); text-align: center; font-size: 15px; margin-bottom: 30px; line-height: 1.4; }
+
+        input, textarea { 
+            width: 100%; padding: 15px; margin-bottom: 15px; 
+            border-radius: 8px; border: 1px solid var(--input-border); 
+            background-color: var(--input-bg); color: white; 
+            font-size: 16px; outline: none; transition: 0.3s; 
+        }
+        input:focus, textarea:focus { border-color: var(--cyan); }
+        textarea { resize: vertical; min-height: 80px; }
+
+        .btn { 
+            width: 100%; padding: 15px; border-radius: 8px; border: none; 
+            font-size: 16px; font-weight: 800; cursor: pointer; 
+            margin-bottom: 15px; text-transform: uppercase;
+            transition: transform 0.1s, opacity 0.2s; 
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-pink { background-color: var(--pink); color: white; }
+        .btn-cyan { background-color: var(--cyan); color: #1a0f35; }
+        .btn-yellow { background-color: var(--yellow); color: #1a0f35; }
+        .btn-orange { background-color: var(--orange); color: white; }
+        .btn-red { background-color: var(--red); color: white; }
+        .btn-green { background-color: var(--green); color: white; }
+        .btn-outline { background-color: transparent; border: 2px solid var(--text-sub); color: var(--text-sub); }
+        .btn-small { padding: 8px 12px; font-size: 12px; margin-bottom: 0; width: auto; }
+        
+        .divider { text-align: center; color: var(--text-sub); margin: 5px 0 20px 0; font-size: 14px; }
+        .host-only, .non-host-only { display: none; }
+
+        .player-list { list-style: none; padding: 0; margin: 20px 0; }
+        .player-list li { background-color: var(--input-bg); padding: 12px; border-radius: 8px; margin-bottom: 8px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+        
+        .timer { font-size: 48px; font-weight: 800; text-align: center; color: var(--yellow); margin: 10px 0 25px 0; }
+        .time-controls { display: flex; gap: 10px; margin-bottom: 15px; }
+        
+        .question-box { background-color: var(--input-bg); border: 2px dashed var(--yellow); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 18px; text-align: center; font-weight: 700; color: var(--yellow); }
+        
+        /* Highlight Pertanyaan Asli di Diskusi */
+        .highlight-box {
+            background-color: var(--yellow); color: #1a0f35; border: 4px solid white;
+            box-shadow: 0 0 15px rgba(255, 209, 43, 0.5); font-size: 20px; padding: 20px;
+        }
+
+        .answer-card { background-color: var(--input-bg); padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--cyan); line-height: 1.5; }
+        .vote-card { background-color: var(--input-bg); padding: 15px; border-radius: 8px; margin-bottom: 10px; font-weight: 700; cursor: pointer; border: 2px solid transparent; text-align: center; }
+        .vote-card.selected { border-color: var(--pink); background-color: rgba(249, 56, 108, 0.1); }
+        .loading-text { text-align: center; color: var(--cyan); font-weight: bold; margin-top: 20px; font-style: italic; }
+
+        /* Admin Dashboard Styles */
+        .admin-item { background: var(--input-bg); padding: 15px; border-radius: 8px; margin-bottom: 10px; text-align: left; border-left: 4px solid var(--text-sub); }
+        .admin-item.active-item { border-left-color: var(--green); }
+        .admin-item.inactive-item { border-left-color: var(--red); opacity: 0.7; }
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-bottom: 5px; color: white; }
+        .bg-green { background: var(--green); }
+        .bg-red { background: var(--red); }
+
+        /* Modal Alerts & Password */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: var(--bg-card); padding: 25px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; border: 1px solid var(--input-border); }
+    </style>
+</head>
+<body>
+
+    <!-- CUSTOM ALERT MODAL -->
+    <div class="modal-overlay" id="customAlert">
+        <div class="modal-box">
+            <p id="alertMessage" style="margin-bottom: 20px;"></p>
+            <button class="btn btn-pink" onclick="closeAlert()" style="margin-bottom: 0;">OK</button>
+        </div>
+    </div>
+
+    <!-- PASSWORD MODAL -->
+    <div class="modal-overlay" id="passwordModal">
+        <div class="modal-box">
+            <h2 style="margin-top:0;">Akses Admin</h2>
+            <input type="password" id="adminPasswordInput" placeholder="Masukkan Password">
+            <button class="btn btn-cyan" onclick="verifyPassword()">MASUK</button>
+            <button class="btn btn-outline" onclick="closePasswordModal()" style="margin-bottom: 0;">BATAL</button>
+        </div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- SCREEN 1: LOBBY -->
+        <div id="screen-lobby" class="screen active">
+            <h1>TEBAK SI IMPOSTER</h1>
+            <p class="subtitle">Adu argumen dan temukan siapa yang beda sendiri!</p>
+            
+            <input type="text" id="input-name" placeholder="Masukkan namamu..." maxlength="12" autocomplete="off">
+            <button class="btn btn-pink" onclick="createRoom()">BUAT ROOM</button>
+            
+            <div class="divider">atau</div>
+            
+            <input type="text" id="input-code" placeholder="KODE ROOM (MISAL: XYZ1)" maxlength="4" style="text-transform: uppercase;" autocomplete="off">
+            <button class="btn btn-cyan" onclick="joinRoom()">GABUNG ROOM</button>
+            
+            <button class="btn btn-outline" style="margin-top: 15px;" onclick="promptAdminPassword()">⚙️ DASHBOARD ADMIN</button>
+        </div>
+
+        <!-- SCREEN ADMIN DASHBOARD -->
+        <div id="screen-admin" class="screen">
+            <h2>⚙️ DASHBOARD ADMIN</h2>
+            
+            <div style="background: var(--input-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <label style="font-size:12px; color:var(--text-sub);">Waktu Diskusi Default (Detik):</label>
+                <div style="display:flex; gap:10px; margin-top:5px;">
+                    <input type="number" id="input-default-time" style="margin:0;" value="180">
+                    <button class="btn btn-yellow btn-small" onclick="saveAdminSettings()">SIMPAN</button>
+                </div>
+            </div>
+
+            <button class="btn btn-pink" onclick="switchScreen('screen-add-question')">➕ TAMBAH SOAL BARU</button>
+            <button class="btn btn-outline" onclick="switchScreen('screen-lobby')">KEMBALI KE LOBBY</button>
+
+            <h3 style="font-size: 16px; color: var(--cyan); margin-top: 30px; border-bottom: 1px solid var(--input-border); padding-bottom: 10px;">Daftar Bank Soal</h3>
+            <p style="font-size:12px; color:var(--text-sub);">Soal yang nonaktif tidak akan muncul saat bermain.</p>
+            <div id="admin-questions-list"></div>
+        </div>
+
+        <!-- SCREEN TAMBAH SOAL -->
+        <div id="screen-add-question" class="screen">
+            <h2>TAMBAH SOAL BARU</h2>
+            <label style="color: var(--cyan); font-weight: bold; font-size: 14px;">Pertanyaan 1 (Sisi A):</label>
+            <textarea id="input-new-a" placeholder="Contoh: Makanan apa yang paling enak?"></textarea>
+            
+            <label style="color: var(--pink); font-weight: bold; font-size: 14px;">Pertanyaan 2 (Sisi B):</label>
+            <textarea id="input-new-b" placeholder="Contoh: Makanan apa yang paling dibenci?"></textarea>
+            
+            <button class="btn btn-yellow" onclick="saveCustomQuestion()">SIMPAN KE DATABASE</button>
+            <button class="btn btn-outline" onclick="loadAdminDashboard()">KEMBALI</button>
+        </div>
+
+        <!-- SCREEN 3: RUANG TUNGGU -->
+        <div id="screen-waiting" class="screen">
+            <h2 style="color: var(--text-sub); font-size: 16px; text-transform: uppercase;">Kode Room:</h2>
+            <h1 id="display-room-code" style="font-size: 48px; letter-spacing: 5px; color: var(--cyan);">----</h1>
+            
+            <p style="text-align: left; margin-bottom: 5px; font-weight: bold;">Pemain Bergabung:</p>
+            <ul id="player-list" class="player-list"></ul>
+            
+            <button id="btn-start" class="btn btn-pink host-only" onclick="startGame()">MULAI GAME</button>
+            <button class="btn btn-outline non-host-only" onclick="takeoverHost()" style="margin-top: 10px; font-size: 12px; padding: 10px;">👑 Ambil Alih Host</button>
+            <p class="subtitle" id="waiting-host-text">Menunggu Host memulai game...</p>
+        </div>
+
+        <!-- SCREEN 4: GAME (INPUT JAWABAN) -->
+        <div id="screen-question" class="screen">
+            <h2 style="font-size: 16px; color: var(--text-sub);">PERTANYAAN RAHASIAMU:</h2>
+            <div class="question-box" id="display-question"></div>
+            <p class="subtitle" style="font-size: 12px; color: var(--pink);">Ssst! Jangan beritahu pemain lain!</p>
+            
+            <textarea id="input-answer" placeholder="Ketik jawaban/alasanmu di sini..."></textarea>
+            <button id="btn-submit-answer" class="btn btn-cyan" onclick="submitAnswer()">KIRIM JAWABAN</button>
+            <p id="waiting-answer-text" class="loading-text" style="display:none;">Menunggu pemain lain...</p>
+            
+            <div class="host-only" style="margin-top: 40px; border-top: 1px solid var(--input-border); padding-top: 20px;">
+                <p style="font-size: 12px; color: var(--text-sub); margin-bottom: 5px;">Kontrol Darurat Host:</p>
+                <button class="btn btn-orange btn-small" onclick="forceFinishAnswering()" style="width:100%; margin-bottom:10px;">⚠️ Paksa Tarik Jawaban</button>
+                <button class="btn btn-red btn-small" onclick="resetToLobby()" style="width:100%;">🔄 Reset Ulang ke Lobby</button>
+            </div>
+            <button class="btn btn-outline non-host-only" onclick="takeoverHost()" style="margin-top: 30px; font-size: 12px; padding: 10px;">👑 Ambil Alih Host</button>
+        </div>
+
+        <!-- SCREEN 5: REVEAL & DISKUSI -->
+        <div id="screen-discussion" class="screen">
+            <h2 style="color: var(--pink); margin-bottom: 5px;">WAKTU DISKUSI!</h2>
+            <div class="timer" id="display-timer">00:00</div>
+            
+            <div class="host-only time-controls">
+                <button class="btn" onclick="addTime(30)">+30 DETIK</button>
+                <button class="btn" onclick="addTime(60)">+1 MENIT</button>
+            </div>
+            <button class="btn btn-pink host-only" onclick="skipDiscussion()" style="margin-bottom: 25px; padding: 10px;">⏭️ SKIP DISKUSI</button>
+            <button class="btn btn-outline non-host-only" onclick="takeoverHost()" style="margin-bottom: 25px; font-size: 12px; padding: 10px;">👑 Ambil Alih Host</button>
+
+            <!-- KOTAK HIGHLIGHT CIVILIAN -->
+            <h3 style="font-size: 14px; color: var(--text-sub); text-align: left; margin-bottom: 5px;">PERTANYAAN ASLI (CIVILIAN):</h3>
+            <div class="question-box highlight-box" id="discussion-revealed-question"></div>
+
+            <h3 style="font-size: 14px; color: var(--text-sub); text-align: left;">Jawaban Pemain:</h3>
+            <div id="discussion-list"></div>
+        </div>
+
+        <!-- SCREEN 6: VOTING -->
+        <div id="screen-vote" class="screen">
+            <h2 style="color: var(--pink);">VOTING IMPOSTER</h2>
+            <p class="subtitle">Pilih jawaban yang paling mencurigakan!</p>
+            <div id="vote-list"></div>
+            <p id="waiting-vote-text" class="loading-text" style="display:none;">Menunggu yang lain...</p>
+            
+            <button class="btn btn-orange host-only" onclick="forceFinishVoting()" style="margin-top: 20px; font-size: 12px; padding: 10px;">⚠️ Paksa Selesai Voting</button>
+            <button class="btn btn-outline non-host-only" onclick="takeoverHost()" style="margin-top: 20px; font-size: 12px; padding: 10px;">👑 Ambil Alih Host</button>
+        </div>
+
+        <!-- SCREEN 7: HASIL -->
+        <div id="screen-result" class="screen">
+            <h1 id="result-title" style="font-size: 32px;"></h1>
+            <p style="font-size: 16px; margin: 20px 0 5px 0;">Imposter Sebenarnya adalah:</p>
+            <h2 id="result-imposter-name" style="color: var(--pink); font-size: 28px; margin-top: 0;"></h2>
+            
+            <div style="background: var(--input-bg); padding: 15px; border-radius: 8px; margin-bottom: 10px; text-align: left; border-left: 4px solid var(--cyan);">
+                <p style="font-size: 12px; color: var(--text-sub); margin: 0 0 5px 0;">Pertanyaan Civilian (Asli):</p>
+                <p id="result-civilian-question" style="color: var(--cyan); margin: 0; font-weight: bold;"></p>
+            </div>
+
+            <div style="background: var(--input-bg); padding: 15px; border-radius: 8px; margin-bottom: 25px; text-align: left; border-left: 4px solid var(--pink);">
+                <p style="font-size: 12px; color: var(--text-sub); margin: 0 0 5px 0;">Pertanyaan Imposter:</p>
+                <p id="result-imposter-question" style="color: var(--pink); margin: 0; font-weight: bold;"></p>
+            </div>
+
+            <h3 style="font-size: 14px; color: var(--text-sub); text-align: left;">Hasil Voting:</h3>
+            <div id="result-votes-list" style="text-align: left; margin-bottom: 20px;"></div>
+
+            <button class="btn btn-cyan host-only" onclick="resetToLobby()">MAIN LAGI</button>
+            <button class="btn btn-outline non-host-only" onclick="takeoverHost()" style="margin-top: 10px; font-size: 12px; padding: 10px;">👑 Ambil Alih Host (Biar bisa Reset)</button>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc, getDocs, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // Konfigurasi Firebase User
+        const firebaseConfig = {
+            apiKey: "AIzaSyCnDBAccPvWVW5I7JSjc7ZFGRM6x14bYbc",
+            authDomain: "oneimposter-a66d5.firebaseapp.com",
+            projectId: "oneimposter-a66d5",
+            storageBucket: "oneimposter-a66d5.firebasestorage.app",
+            messagingSenderId: "557069366546",
+            appId: "1:557069366546:web:f3444c10b583350a5cefcb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Global Variables
+        let currentUser = null;
+        let currentRoomCode = null;
+        let isHost = false;
+        let roomUnsubscribe = null;
+        let localRoomData = null;
+        let localTimerInterval = null;
+        let defaultDiscussionTime = 180; // 3 Menit Default
+        
+        // 29 Base Questions (Bisa bolak balik A/B)
+        const baseQuestionBank = [
+            // 9 Soal Baru
+            { id: 'base_0', a: "Makanan apa yang paling kamu sesali pernah kamu coba?", b: "Makanan apa yang paling kamu suka untuk kamu makan kapan saja?" },
+            { id: 'base_1', a: "Aplikasi apa yang paling ingin kamu hapus dari HP selamanya?", b: "Aplikasi apa yang paling sering kamu buka di HP setiap hari?" },
+            { id: 'base_2', a: "Kalau bisa menukar hidup dengan satu orang selama sehari, siapa orangnya?", b: "Kalau bisa menghabiskan waktu dengan satu orang terkenal selama sehari, siapa orangnya?" },
+            { id: 'base_3', a: "Kalau kamu jadi hantu, siapa orang pertama yang ingin kamu ganggu?", b: "Siapa temanmu yang menurutmu paling penakut?" },
+            { id: 'base_4', a: "Kalau ketahuan stalking seseorang, alasan paling aman yang akan kamu kasih apa?", b: "Sebutkan satu alasan kamu membuka Instagram saat lagi kerja!" },
+            { id: 'base_5', a: "Berapa menit biasanya kamu habiskan untuk mandi?", b: "Pilih angka antara 1–60!" },
+            { id: 'base_6', a: "Kalau temanmu tiba-tiba pinjam uang, nominal berapa yang masih rela kamu kasih?", b: "Berapa uang terbesar yang pernah kamu kasih ke pengamen?" },
+            { id: 'base_7', a: "Kalau besok saldo rekeningmu tiba-tiba bertambah Rp100 juta, hal pertama apa yang bakal kamu lakukan?", b: "Kalau besok kamu tiba-tiba dapat bonus Rp1 juta, hal pertama apa yang bakal kamu lakukan?" },
+            { id: 'base_8', a: "Kalau alien datang ke rumahmu malam ini dan meminta satu makanan Indonesia, makanan apa yang bakal kamu kasih?", b: "Kalau prabowo datang ke rumahmu secara tiba-tiba, makanan apa yang bakal kamu suguhi?" },
+            
+            // 20 Soal Skenario (Zombie, Mesin Waktu, dll)
+            { id: 'base_9', a: "Pesawatmu jatuh dan kamu terdampar di pulau yang ternyata penuh zombie. Kamu hanya boleh memilih satu orang untuk menemanimu bertahan hidup. Siapa?", b: "Kamu dan teman-temanmu sedang dikejar zombie. Ternyata kamu cuma punya satu kesempatan untuk menyelamatkan satu orang sebelum pintu ditutup. Siapa yang kamu pilih?" },
+            { id: 'base_10', a: "Pagi ini kamu bangun dan saldo rekeningmu tiba-tiba Rp100 miliar. Sebelum bank menyadari kesalahannya, kamu harus membeli sesuatu. Apa yang kamu beli?", b: "Kamu sudah menjadi orang kaya selama 10 tahun dan akhirnya ingin membeli satu barang yang sebenarnya sama sekali tidak kamu perlukan, tapi bikin kamu merasa sukses. Apa?" },
+            { id: 'base_11', a: "Kiamat terjadi besok dan malam ini kamu diberi kesempatan makan gratis di restoran terakhir yang masih buka. Kamu pesan apa?", b: "Kamu sedang patah hati dan temanmu bilang, “Tenang, gue traktir. Pilih makanan apa saja.” Makanan apa yang kamu pesan?" },
+            { id: 'base_12', a: "Pemerintah memberimu rumah gratis, tetapi kamu harus tinggal tepat di sebelah satu selebritas pilihanmu. Siapa yang kamu pilih sebagai tetangga?", b: "Kamu baru pindah rumah. Setiap malam tetanggamu karaoke sampai jam 3 pagi. Setelah melihat wajahnya, kamu ternyata tahu dia selebritas. Siapa yang paling ingin kamu suruh pindah?" },
+            { id: 'base_13', a: "Kamu menemukan mesin waktu di gudang dan hanya bisa menggunakannya sekali. Kamu mau pergi ke masa lalu untuk bertemu siapa?", b: "Mesin waktu itu rusak dan malah membawamu ke tahun tertentu. Kamu melihat satu tokoh dari masa lalu sedang nongkrong di warung. Siapa yang paling ingin kamu ajak ngobrol?" },
+            { id: 'base_14', a: "Kamu memenangkan tiket kapal pesiar mewah selama sebulan dan boleh membawa satu orang. Siapa yang kamu ajak?", b: "Kapal pesiar itu ternyata bocor dan kapten bilang hanya satu orang yang boleh naik sekoci bersamamu. Siapa yang kamu pilih?" },
+            { id: 'base_15', a: "Kamu mendapat kesempatan membangun rumah impian tanpa batas biaya. Kamu boleh menambahkan satu ruangan absurd yang tidak dimiliki rumah biasa. Ruangan apa?", b: "Keluargamu datang menginap selama seminggu dan kamu mulai kehilangan kewarasan. Kamu butuh satu tempat rahasia untuk kabur dari mereka. Kamu ingin tempat seperti apa?" },
+            { id: 'base_16', a: "Laboratorium memberimu kesempatan memilih satu hewan untuk ditingkatkan menjadi sangat pintar dan bisa berbicara. Hewan apa yang kamu pilih?", b: "Kamu direkrut menjadi agen rahasia dan membutuhkan hewan untuk menjaga rumahmu. Hewan apa yang paling kamu percaya untuk menjadi bodyguard?" },
+            { id: 'base_17', a: "Temanmu mentraktir satu malam karaoke dan kamu boleh mengajak satu orang untuk duet. Siapa?", b: "Kamu masuk ke karaoke dan melihat satu teman sudah memegang mikrofon sambil bilang, “Malam ini gue yang pegang playlist.” Siapa orang yang paling kamu takutkan?" },
+            { id: 'base_18', a: "Kamu mendapatkan kekuatan untuk langsung menguasai satu kemampuan apa pun. Besok pagi kamu sudah jago. Kemampuan apa yang kamu pilih?", b: "Kamu akan bertemu gebetan besok dan ingin membuatnya berkata, “Wah, keren juga nih orang.” Kamu punya waktu semalam untuk mempelajari satu kemampuan. Apa?" },
+            { id: 'base_19', a: "Kamu mendapat satu tahun cuti, semua kebutuhan dibayar, dan tidak ada seorang pun yang boleh menghubungimu. Kamu akan tinggal di mana?", b: "Kamu baru saja melakukan kesalahan yang sangat memalukan dan ingin menghilang dari peradaban selama beberapa bulan. Kamu kabur ke mana?" },
+            { id: 'base_20', a: "Kamu mendapat apartemen gratis, tetapi harus memilih satu teman untuk tinggal bersamamu selama setahun. Siapa?", b: "Kamu hanya punya waktu seminggu untuk mencari teman sekamar baru karena temanmu sekarang sudah membuatmu hampir gila. Siapa orang yang justru tidak akan kamu pilih?" },
+            { id: 'base_21', a: "Kamu mendapat kesempatan mendaki gunung paling indah di dunia, tetapi harus memilih satu orang sebagai partner perjalanan. Siapa?", b: "Kamu tersesat di gunung bersama lima teman. Helikopter hanya bisa mengevakuasi satu orang sekarang. Siapa yang kamu pilih untuk diselamatkan duluan?" },
+            { id: 'base_22', a: "Kamu akan menikah dan punya anggaran tidak terbatas. Kamu boleh mengundang satu orang terkenal untuk menghibur tamu. Siapa?", b: "Pernikahanmu berubah kacau karena satu tamu mulai mengambil alih panggung dan membuat semua orang malu. Siapa yang paling mungkin melakukan itu?" },
+            { id: 'base_23', a: "Kamu mendapat hadiah liburan gratis ke pulau tropis dan boleh mengajak satu orang. Siapa yang kamu ajak?", b: "Kamu sudah seminggu di pulau tropis dan mulai sadar temanmu ternyata sangat menyebalkan. Kalau boleh meninggalkan satu orang di pulau itu, siapa?" },
+            { id: 'base_24', a: "Kamu masuk ke toko ajaib yang menjual semua barang di dunia dan penjaganya berkata, “Ambil satu. Gratis.” Kamu mengambil apa?", b: "Kamu masuk ke toko yang menjual barang-barang aneh. Kamu hanya boleh membeli satu benda yang menurutmu paling tidak berguna tetapi tetap ingin kamu punya. Apa?" },
+            { id: 'base_25', a: "Kamu tiba-tiba menjadi presiden selama 24 jam. Kamu boleh membuat satu aturan baru untuk seluruh Indonesia. Aturan apa?", b: "Kamu menjadi bos kantor selama sehari dan semua pegawai wajib mengikuti satu aturanmu. Aturan absurd apa yang langsung kamu buat?" },
+            { id: 'base_26', a: "Zombie apocalypse dimulai malam ini. Kamu punya waktu 10 menit untuk memilih satu kendaraan dan kabur. Kendaraan apa yang kamu ambil?", b: "Kamu sedang dikejar zombie dan melihat satu kendaraan terparkir dengan kunci masih menempel. Kendaraan apa yang paling kamu harapkan ada di sana?" },
+            { id: 'base_27', a: "Kamu diberi mesin waktu dan boleh membawa satu tokoh sejarah ke masa sekarang untuk makan malam. Siapa?", b: "Kamu sedang membuat podcast tentang gosip sejarah dan bisa mengundang satu tokoh sejarah sebagai bintang tamu. Siapa yang paling ingin kamu wawancarai?" },
+            { id: 'base_28', a: "Kamu hanya punya Rp50 ribu untuk bertahan sampai akhir bulan. Tiba-tiba temanmu mentransfer tambahan Rp50 ribu dan bilang, “Pakai buat bikin hidupmu sedikit lebih bahagia.” Kamu beli apa?", b: "Kamu baru menerima gaji dan setelah membayar semua tagihan, tersisa Rp50 ribu yang boleh kamu habiskan tanpa rasa bersalah. Kamu gunakan untuk membeli apa?" }
+        ];
+        
+        window.showAlert = function(msg) {
+            document.getElementById('alertMessage').innerText = msg;
+            document.getElementById('customAlert').style.display = 'flex';
+        }
+        window.closeAlert = function() {
+            document.getElementById('customAlert').style.display = 'none';
+        }
+        window.switchScreen = function(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        // Anti-Refresh Warning
+        window.addEventListener('beforeunload', function (e) {
+            if (currentRoomCode) {
+                e.preventDefault();
+                e.returnValue = 'Yakin ingin keluar? Koneksimu ke room bisa terputus.';
+            }
+        });
+
+        // Authentication & Auto-Rejoin
+        async function initAuth() {
+            try {
+                const userCredential = await signInAnonymously(auth);
+                currentUser = userCredential.user;
+                
+                const savedRoom = sessionStorage.getItem('imposterRoom');
+                const savedName = sessionStorage.getItem('imposterName');
+                if (savedRoom && savedName) {
+                    document.getElementById('input-name').value = savedName;
+                    rejoinRoom(savedRoom, savedName);
+                }
+            } catch (error) {
+                console.error("Auth Error:", error);
+                showAlert("Gagal terhubung ke server.");
+            }
+        }
+        initAuth();
+
+        let realAdminPassword = "admin";
+        
+        window.promptAdminPassword = async function() {
+            document.getElementById('passwordModal').style.display = 'flex';
+            document.getElementById('adminPasswordInput').value = '';
+            
+            // Ambil dari Firebase Settings
+            const globalRef = doc(db, 'settings', 'global');
+            const snap = await getDoc(globalRef);
+            if(snap.exists() && snap.data().adminPassword) {
+                realAdminPassword = snap.data().adminPassword;
+                defaultDiscussionTime = snap.data().defaultTime || 180;
+            } else {
+                // Inisiasi awal jika kosong
+                await setDoc(globalRef, { adminPassword: 'admin', defaultTime: 180 }, {merge:true});
+                realAdminPassword = 'admin';
+            }
+        }
+        window.closePasswordModal = function() { document.getElementById('passwordModal').style.display = 'none'; }
+        
+        window.verifyPassword = function() {
+            const input = document.getElementById('adminPasswordInput').value;
+            if(input === realAdminPassword) {
+                closePasswordModal();
+                loadAdminDashboard();
+            } else {
+                showAlert("Password Salah!");
+            }
+        }
+
+        window.loadAdminDashboard = async function() {
+            switchScreen('screen-admin');
+            document.getElementById('input-default-time').value = defaultDiscussionTime;
+
+            const listDiv = document.getElementById('admin-questions-list');
+            listDiv.innerHTML = '<p class="loading-text">Memuat Bank Soal...</p>';
+
+            let combinedQ = [...baseQuestionBank];
+            
+            // Load custom questions
+            const qSnap = await getDocs(collection(db, 'custom_questions'));
+            qSnap.forEach(d => {
+                const data = d.data();
+                combinedQ.push({ id: d.id, a: data.a, b: data.b });
+            });
+
+            // Load Toggles Status
+            let toggles = {};
+            const tSnap = await getDoc(doc(db, 'settings', 'toggles'));
+            if(tSnap.exists()) toggles = tSnap.data();
+
+            listDiv.innerHTML = '';
+            combinedQ.forEach(q => {
+                const isActive = toggles[q.id] !== false; // Default true if not explicitly false
+                
+                const div = document.createElement('div');
+                div.className = `admin-item ${isActive ? 'active-item' : 'inactive-item'}`;
+                
+                let badge = isActive ? `<span class="status-badge bg-green">AKTIF</span>` : `<span class="status-badge bg-red">NONAKTIF</span>`;
+                let btnTxt = isActive ? "NONAKTIFKAN" : "AKTIFKAN";
+                
+                div.innerHTML = `
+                    ${badge}
+                    <p style="font-size:12px; margin:5px 0;"><b>A:</b> ${q.a}</p>
+                    <p style="font-size:12px; margin:0 0 10px 0;"><b>B:</b> ${q.b}</p>
+                    <button class="btn ${isActive ? 'btn-outline' : 'btn-cyan'} btn-small" onclick="toggleQuestion('${q.id}', ${!isActive})">${btnTxt}</button>
+                `;
+                listDiv.appendChild(div);
+            });
+        }
+
+        window.toggleQuestion = async function(qId, setToActive) {
+            await setDoc(doc(db, 'settings', 'toggles'), { [qId]: setToActive }, {merge: true});
+            loadAdminDashboard(); // refresh list
+        }
+
+        window.saveAdminSettings = async function() {
+            const time = parseInt(document.getElementById('input-default-time').value);
+            if(time > 0) {
+                defaultDiscussionTime = time;
+                await setDoc(doc(db, 'settings', 'global'), { defaultTime: time }, {merge:true});
+                showAlert("Waktu diskusi berhasil disimpan!");
+            }
+        }
+
+        window.saveCustomQuestion = async function() {
+            const a = document.getElementById('input-new-a').value.trim();
+            const b = document.getElementById('input-new-b').value.trim();
+            if (!a || !b) return showAlert("Harap isi kedua pertanyaan!");
+
+            await addDoc(collection(db, "custom_questions"), { a: a, b: b });
+            document.getElementById('input-new-a').value = '';
+            document.getElementById('input-new-b').value = '';
+            showAlert("Soal berhasil ditambahkan!");
+            loadAdminDashboard();
+        }
+
+        window.createRoom = async function() {
+            const name = document.getElementById('input-name').value.trim();
+            if (!name) return showAlert("Masukkan namamu dulu!");
+            if (!currentUser) return showAlert("Menghubungkan ke server...");
+
+            isHost = true;
+            currentRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            sessionStorage.setItem('imposterRoom', currentRoomCode);
+            sessionStorage.setItem('imposterName', name);
+            
+            // Ambil default time
+            const globalRef = doc(db, 'settings', 'global');
+            const snap = await getDoc(globalRef);
+            if(snap.exists() && snap.data().defaultTime) defaultDiscussionTime = snap.data().defaultTime;
+
+            const roomRef = doc(db, 'rooms', currentRoomCode);
+            await setDoc(roomRef, {
+                status: 'lobby', hostId: currentUser.uid,
+                players: { [currentUser.uid]: { name: name } },
+                qNormal: "", qImposter: "", imposterId: null,
+                answers: {}, votes: {}, discussionEndTime: 0
+            });
+
+            document.getElementById('display-room-code').innerText = currentRoomCode;
+            switchScreen('screen-waiting');
+            listenToRoom(currentRoomCode);
+        };
+
+        window.joinRoom = async function() {
+            const name = document.getElementById('input-name').value.trim();
+            const code = document.getElementById('input-code').value.trim().toUpperCase();
+            
+            if (!name) return showAlert("Masukkan namamu dulu!");
+            if (!code) return showAlert("Masukkan kode room!");
+
+            const roomRef = doc(db, 'rooms', code);
+            const docSnap = await getDoc(roomRef);
+
+            if (!docSnap.exists()) return showAlert("Room tidak ditemukan!");
+            if (docSnap.data().status !== 'lobby') return showAlert("Game sudah dimulai! Tunggu di lobby.");
+
+            sessionStorage.setItem('imposterRoom', code);
+            sessionStorage.setItem('imposterName', name);
+
+            isHost = false;
+            currentRoomCode = code;
+            
+            await updateDoc(roomRef, { [`players.${currentUser.uid}`]: { name: name } });
+            document.getElementById('display-room-code').innerText = currentRoomCode;
+            switchScreen('screen-waiting');
+            listenToRoom(currentRoomCode);
+        };
+
+        async function rejoinRoom(code, name) {
+            const roomRef = doc(db, 'rooms', code);
+            const docSnap = await getDoc(roomRef);
+            if (docSnap.exists() && docSnap.data().players[currentUser.uid]) {
+                currentRoomCode = code;
+                document.getElementById('display-room-code').innerText = currentRoomCode;
+                listenToRoom(code);
+            } else {
+                sessionStorage.clear(); currentRoomCode = null;
+            }
+        }
+
+        function updateHostUI() {
+            if (isHost) {
+                document.querySelectorAll('.host-only').forEach(el => el.style.display = 'inline-block');
+                document.querySelectorAll('.non-host-only').forEach(el => el.style.display = 'none');
+                const t = document.getElementById('waiting-host-text'); if(t) t.style.display = 'none';
+            } else {
+                document.querySelectorAll('.host-only').forEach(el => el.style.display = 'none');
+                document.querySelectorAll('.non-host-only').forEach(el => el.style.display = 'inline-block');
+                const t = document.getElementById('waiting-host-text'); if(t) t.style.display = 'block';
+            }
+        }
+
+        window.takeoverHost = async function() {
+            if(confirm("Ambil alih posisi Host?")) await updateDoc(doc(db, 'rooms', currentRoomCode), { hostId: currentUser.uid });
+        };
+
+        window.kickPlayer = async function(uid) {
+            if(confirm("Keluarkan pemain ini?")) await updateDoc(doc(db, 'rooms', currentRoomCode), { [`players.${uid}`]: deleteField() });
+        };
+
+        function listenToRoom(code) {
+            const roomRef = doc(db, 'rooms', code);
+            if (roomUnsubscribe) roomUnsubscribe();
+            
+            roomUnsubscribe = onSnapshot(roomRef, (docSnap) => {
+                if (!docSnap.exists()) {
+                    sessionStorage.clear(); currentRoomCode = null;
+                    showAlert("Room telah ditutup."); location.reload(); return;
+                }
+
+                localRoomData = docSnap.data();
+                
+                // Cek Kick
+                if (!localRoomData.players[currentUser.uid]) {
+                    sessionStorage.clear(); currentRoomCode = null;
+                    showAlert("Kamu dikeluarkan dari room."); location.reload(); return;
+                }
+
+                const wasHost = isHost;
+                isHost = (localRoomData.hostId === currentUser.uid);
+                if(wasHost !== isHost) updateHostUI();
+
+                const curScreen = document.querySelector('.screen.active').id;
+                const playerIds = Object.keys(localRoomData.players);
+
+                // Update Lobby List
+                if (curScreen === 'screen-waiting' || localRoomData.status === 'lobby') {
+                    const list = document.getElementById('player-list');
+                    list.innerHTML = '';
+                    for (const uid in localRoomData.players) {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<div>👤 ${localRoomData.players[uid].name}</div>`;
+                        if (isHost && uid !== currentUser.uid) li.innerHTML += `<button class="btn btn-red btn-small" style="padding:5px;" onclick="kickPlayer('${uid}')">Kick</button>`;
+                        list.appendChild(li);
+                    }
+                    if (isHost) document.getElementById('btn-start').disabled = playerIds.length < 3;
+                }
+
+                // Handle Transitions
+                if (localRoomData.status === 'answering' && curScreen !== 'screen-question') transitionToQuestion(localRoomData);
+                if (localRoomData.status === 'discussion' && curScreen !== 'screen-discussion') transitionToDiscussion(localRoomData);
+                if (localRoomData.status === 'voting' && curScreen !== 'screen-vote') transitionToVote(localRoomData);
+                if (localRoomData.status === 'result' && curScreen !== 'screen-result') transitionToResult(localRoomData);
+                if (localRoomData.status === 'lobby' && curScreen !== 'screen-waiting' && curScreen !== 'screen-lobby') switchScreen('screen-waiting');
+
+                if (isHost) checkGameStateAutomations();
+            });
+        }
+
+        async function checkGameStateAutomations() {
+            if (!isHost || !localRoomData) return;
+            const pCount = Object.keys(localRoomData.players).length;
+            const roomRef = doc(db, 'rooms', currentRoomCode);
+
+            if (localRoomData.status === 'answering') {
+                const ansCount = Object.keys(localRoomData.answers || {}).length;
+                if (ansCount > 0 && ansCount === pCount) {
+                    await updateDoc(roomRef, { status: 'discussion', discussionEndTime: Date.now() + (defaultDiscussionTime * 1000) });
+                }
+            }
+
+            if (localRoomData.status === 'voting') {
+                const voteCount = Object.keys(localRoomData.votes || {}).length;
+                if (voteCount > 0 && voteCount === pCount) {
+                    await updateDoc(roomRef, { status: 'result' });
+                }
+            }
+        }
+
+        window.startGame = async function() {
+            if (!isHost) return;
+            document.getElementById('btn-start').innerText = "MENYIAPKAN...";
+
+            // Gabungkan soal bawaan dan custom
+            let combinedQ = [...baseQuestionBank];
+            const qSnap = await getDocs(collection(db, 'custom_questions'));
+            qSnap.forEach(d => { combinedQ.push({ id: d.id, a: d.data().a, b: d.data().b }); });
+
+            // Saring yang aktif saja
+            let toggles = {};
+            const tSnap = await getDoc(doc(db, 'settings', 'toggles'));
+            if(tSnap.exists()) toggles = tSnap.data();
+            
+            const activeQuestions = combinedQ.filter(q => toggles[q.id] !== false);
+            if(activeQuestions.length === 0) return showAlert("Tidak ada soal yang aktif di Dashboard!");
+
+            // Acak Soal dan Acak Peran A/B
+            const selectedQ = activeQuestions[Math.floor(Math.random() * activeQuestions.length)];
+            const isSwapped = Math.random() > 0.5; // 50% chance to swap A and B
+            const finalNormal = isSwapped ? selectedQ.b : selectedQ.a;
+            const finalImposter = isSwapped ? selectedQ.a : selectedQ.b;
+
+            const playerIds = Object.keys(localRoomData.players);
+            const imposterId = playerIds[Math.floor(Math.random() * playerIds.length)];
+
+            await updateDoc(doc(db, 'rooms', currentRoomCode), {
+                status: 'answering', imposterId: imposterId,
+                qNormal: finalNormal, qImposter: finalImposter,
+                answers: {}, votes: {}
+            });
+            document.getElementById('btn-start').innerText = "MULAI GAME";
+        };
+
+        function transitionToQuestion(data) {
+            document.getElementById('input-answer').value = '';
+            document.getElementById('btn-submit-answer').style.display = 'block';
+            document.getElementById('waiting-answer-text').style.display = 'none';
+            
+            const myQuestion = (currentUser.uid === data.imposterId) ? data.qImposter : data.qNormal;
+            document.getElementById('display-question').innerText = myQuestion;
+            
+            switchScreen('screen-question');
+            
+            if(data.answers && data.answers[currentUser.uid]){
+                 document.getElementById('btn-submit-answer').style.display = 'none';
+                 document.getElementById('waiting-answer-text').style.display = 'block';
+            }
+        }
+
+        window.submitAnswer = async function() {
+            const ans = document.getElementById('input-answer').value.trim();
+            if (!ans) return showAlert("Ketik jawabanmu dulu!");
+            document.getElementById('btn-submit-answer').style.display = 'none';
+            document.getElementById('waiting-answer-text').style.display = 'block';
+            await updateDoc(doc(db, 'rooms', currentRoomCode), { [`answers.${currentUser.uid}`]: ans });
+        };
+
+        window.forceFinishAnswering = async function() {
+            if(confirm("Tarik paksa? Pemain yang belum jawab akan terlewat.")) {
+                await updateDoc(doc(db, 'rooms', currentRoomCode), { status: 'discussion', discussionEndTime: Date.now() + (defaultDiscussionTime * 1000) });
+            }
+        };
+
+        window.resetToLobby = async function() {
+            if(confirm("Reset game? Semua akan dikembalikan ke ruang tunggu.")) {
+                await updateDoc(doc(db, 'rooms', currentRoomCode), { status: 'lobby' });
+            }
+        };
+
+        function transitionToDiscussion(data) {
+            // Tampilkan pertanyaan Asli mencolok
+            document.getElementById('discussion-revealed-question').innerText = data.qNormal;
+            const list = document.getElementById('discussion-list');
+            list.innerHTML = '';
+            
+            for (const uid in data.players) {
+                const name = data.players[uid] ? data.players[uid].name : 'Unknown';
+                let ans = "<i>(Belum menjawab)</i>";
+                if (data.answers && data.answers[uid]) ans = data.answers[uid];
+                list.innerHTML += `<div class="answer-card"><b>${name}:</b><br>${ans}</div>`;
+            }
+            switchScreen('screen-discussion');
+            startLiveTimer();
+        }
+
+        function startLiveTimer() {
+            if (localTimerInterval) clearInterval(localTimerInterval);
+            localTimerInterval = setInterval(() => {
+                if (!localRoomData || localRoomData.status !== 'discussion') {
+                    clearInterval(localTimerInterval); return;
+                }
+                const remaining = Math.max(0, Math.floor((localRoomData.discussionEndTime - Date.now()) / 1000));
+                const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+                const s = (remaining % 60).toString().padStart(2, '0');
+                document.getElementById('display-timer').innerText = `${m}:${s}`;
+
+                if (remaining <= 0 && isHost) {
+                    updateDoc(doc(db, 'rooms', currentRoomCode), { status: 'voting' });
+                    clearInterval(localTimerInterval);
+                }
+            }, 500); 
+        }
+
+        window.addTime = async function(seconds) {
+            const newEndTime = localRoomData.discussionEndTime + (seconds * 1000);
+            await updateDoc(doc(db, 'rooms', currentRoomCode), { discussionEndTime: newEndTime });
+        };
+
+        window.skipDiscussion = async function() {
+            await updateDoc(doc(db, 'rooms', currentRoomCode), { status: 'voting' });
+        };
+
+        function transitionToVote(data) {
+            document.getElementById('waiting-vote-text').style.display = 'none';
+            document.getElementById('vote-list').style.pointerEvents = 'auto'; 
+            const list = document.getElementById('vote-list');
+            list.innerHTML = '';
+
+            for (const uid in data.players) {
+                if (uid !== currentUser.uid) {
+                    const div = document.createElement('div');
+                    div.className = 'vote-card';
+                    if(data.votes && data.votes[currentUser.uid] === uid) div.classList.add('selected');
+                    div.innerText = `🚨 Curigai ${data.players[uid].name}`;
+                    div.onclick = () => castVote(uid, div);
+                    list.appendChild(div);
+                }
+            }
+            switchScreen('screen-vote');
+            if(data.votes && data.votes[currentUser.uid]){
+                 document.getElementById('vote-list').style.pointerEvents = 'none';
+                 document.getElementById('waiting-vote-text').style.display = 'block';
+            }
+        }
+
+        window.castVote = async function(suspectUid, element) {
+            document.querySelectorAll('.vote-card').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            document.getElementById('vote-list').style.pointerEvents = 'none';
+            document.getElementById('waiting-vote-text').style.display = 'block';
+            await updateDoc(doc(db, 'rooms', currentRoomCode), { [`votes.${currentUser.uid}`]: suspectUid });
+        };
+
+        window.forceFinishVoting = async function() {
+            if(confirm("Paksa selesai voting?")) await updateDoc(doc(db, 'rooms', currentRoomCode), { status: 'result' });
+        }
+
+        function transitionToResult(data) {
+            const imposterUid = data.imposterId;
+            document.getElementById('result-imposter-name').innerText = data.players[imposterUid] ? data.players[imposterUid].name : 'Keluar';
+            document.getElementById('result-civilian-question').innerText = data.qNormal;
+            document.getElementById('result-imposter-question').innerText = data.qImposter;
+            
+            let myVote = data.votes ? data.votes[currentUser.uid] : null;
+            const title = document.getElementById('result-title');
+            if (myVote === imposterUid) { title.innerText = "🎉 TEBAKANMU BENAR!"; title.style.color = "var(--cyan)"; } 
+            else if (currentUser.uid === imposterUid) { title.innerText = "😈 KAMU KETAHUAN!"; title.style.color = "var(--pink)"; } 
+            else { title.innerText = "💀 TEBAKANMU SALAH!"; title.style.color = "var(--pink)"; }
+
+            const voteCounts = {};
+            for (const uid in data.votes) voteCounts[data.votes[uid]] = (voteCounts[data.votes[uid]] || 0) + 1;
+
+            const votesListEl = document.getElementById('result-votes-list');
+            votesListEl.innerHTML = '';
+            for (const uid in voteCounts) {
+                const name = data.players[uid] ? data.players[uid].name : 'Pemain Keluar';
+                votesListEl.innerHTML += `<div style="background: var(--input-bg); padding: 10px; border-radius: 5px; margin-bottom: 5px; font-weight: bold;">${name} <span style="color:var(--pink); float:right;">${voteCounts[uid]} Suara</span></div>`;
+            }
+            switchScreen('screen-result');
+        }
+    </script>
+</body>
+</html>
