@@ -101,6 +101,14 @@
         /* Modal Alerts & Password */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
         .modal-box { background: var(--bg-card); padding: 25px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; border: 1px solid var(--input-border); }
+
+        /* Switch Toggle */
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--input-bg); border: 1px solid var(--input-border); transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: var(--text-sub); transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--orange); border-color: var(--orange); }
+        input:checked + .slider:before { transform: translateX(20px); background-color: white; }
     </style>
 </head>
 <body>
@@ -153,11 +161,31 @@
                 </div>
             </div>
 
+            <div style="background: var(--input-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: left;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <span style="font-size:14px; font-weight:bold; color:var(--orange);">Peran "Amnesia"</span>
+                        <p style="font-size:11px; color:var(--text-sub); margin:5px 0 0 0;">1 Pemain mendapat pertanyaan kosong (Min 4 Pemain).</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-amnesia" onchange="saveAmnesiaSetting()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
             <button class="btn btn-pink" onclick="switchScreen('screen-add-question')">➕ TAMBAH SOAL BARU</button>
-            <button class="btn btn-outline" onclick="switchScreen('screen-lobby')">KEMBALI KE LOBBY</button>
+            <button class="btn btn-outline" onclick="switchScreen(currentRoomCode ? 'screen-waiting' : 'screen-lobby')">KEMBALI</button>
 
             <h3 style="font-size: 16px; color: var(--cyan); margin-top: 30px; border-bottom: 1px solid var(--input-border); padding-bottom: 10px;">Daftar Bank Soal</h3>
-            <p style="font-size:12px; color:var(--text-sub);">Soal yang nonaktif tidak akan muncul saat bermain.</p>
+            <p style="font-size:12px; color:var(--text-sub);">Centang soal yang ingin kamu masukkan ke dalam permainan.</p>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button class="btn btn-cyan btn-small" style="flex:1;" onclick="selectAllQuestions(true)">☑️ CENTANG SEMUA</button>
+                <button class="btn btn-outline btn-small" style="flex:1;" onclick="selectAllQuestions(false)">☐ HAPUS CENTANG</button>
+            </div>
+            <button id="btn-save-toggles" class="btn btn-yellow" style="margin-bottom: 20px;" onclick="saveQuestionToggles()">💾 SIMPAN STATUS SOAL</button>
+
             <div id="admin-questions-list"></div>
         </div>
 
@@ -184,14 +212,15 @@
             
             <button id="btn-start" class="btn btn-pink host-only" onclick="startGame()">MULAI GAME</button>
             <button class="btn btn-outline non-host-only" onclick="takeoverHost()" style="margin-top: 10px; font-size: 12px; padding: 10px;">👑 Ambil Alih Host</button>
+            <button class="btn btn-outline" onclick="promptAdminPassword()" style="margin-top: 10px; font-size: 12px; padding: 10px;">⚙️ DASHBOARD ADMIN</button>
             <p class="subtitle" id="waiting-host-text">Menunggu Host memulai game...</p>
         </div>
 
         <!-- SCREEN 4: GAME (INPUT JAWABAN) -->
         <div id="screen-question" class="screen">
-            <h2 style="font-size: 16px; color: var(--text-sub);">PERTANYAAN RAHASIAMU:</h2>
+            <h2 id="question-title" style="font-size: 16px; color: var(--text-sub);">PERTANYAAN RAHASIAMU:</h2>
             <div class="question-box" id="display-question"></div>
-            <p class="subtitle" style="font-size: 12px; color: var(--pink);">Ssst! Jangan beritahu pemain lain!</p>
+            <p id="question-subtitle" class="subtitle" style="font-size: 12px; color: var(--pink);">Ssst! Jangan beritahu pemain lain!</p>
             
             <textarea id="input-answer" placeholder="Ketik jawaban/alasanmu di sini..."></textarea>
             <button id="btn-submit-answer" class="btn btn-cyan" onclick="submitAnswer()">KIRIM JAWABAN</button>
@@ -242,6 +271,9 @@
             <p style="font-size: 16px; margin: 20px 0 5px 0;">Imposter Sebenarnya adalah:</p>
             <h2 id="result-imposter-name" style="color: var(--pink); font-size: 28px; margin-top: 0;"></h2>
             
+            <p id="result-amnesia-label" style="font-size: 16px; margin: 10px 0 5px 0; display: none;">Si Amnesia adalah:</p>
+            <h3 id="result-amnesia-name" style="color: var(--orange); font-size: 24px; margin-top: 0; display: none;"></h3>
+            
             <div style="background: var(--input-bg); padding: 15px; border-radius: 8px; margin-bottom: 10px; text-align: left; border-left: 4px solid var(--cyan);">
                 <p style="font-size: 12px; color: var(--text-sub); margin: 0 0 5px 0;">Pertanyaan Civilian (Asli):</p>
                 <p id="result-civilian-question" style="color: var(--cyan); margin: 0; font-weight: bold;"></p>
@@ -264,7 +296,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc, getDocs, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc, getDocs, deleteField, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // Konfigurasi Firebase User
         const firebaseConfig = {
@@ -398,6 +430,14 @@
             switchScreen('screen-admin');
             document.getElementById('input-default-time').value = defaultDiscussionTime;
 
+            const globalRef = doc(db, 'settings', 'global');
+            const gSnap = await getDoc(globalRef);
+            if(gSnap.exists() && gSnap.data().amnesiaEnabled) {
+                document.getElementById('toggle-amnesia').checked = true;
+            } else {
+                document.getElementById('toggle-amnesia').checked = false;
+            }
+
             const listDiv = document.getElementById('admin-questions-list');
             listDiv.innerHTML = '<p class="loading-text">Memuat Bank Soal...</p>';
 
@@ -407,7 +447,7 @@
             const qSnap = await getDocs(collection(db, 'custom_questions'));
             qSnap.forEach(d => {
                 const data = d.data();
-                combinedQ.push({ id: d.id, a: data.a, b: data.b });
+                combinedQ.push({ id: d.id, a: data.a, b: data.b, isCustom: true });
             });
 
             // Load Toggles Status
@@ -423,21 +463,51 @@
                 div.className = `admin-item ${isActive ? 'active-item' : 'inactive-item'}`;
                 
                 let badge = isActive ? `<span class="status-badge bg-green">AKTIF</span>` : `<span class="status-badge bg-red">NONAKTIF</span>`;
-                let btnTxt = isActive ? "NONAKTIFKAN" : "AKTIFKAN";
+                let deleteBtn = q.isCustom ? `<button class="btn btn-red btn-small" style="padding: 5px 10px; margin-left: 10px;" onclick="deleteCustomQuestion('${q.id}')">🗑️ HAPUS</button>` : '';
                 
                 div.innerHTML = `
-                    ${badge}
-                    <p style="font-size:12px; margin:5px 0;"><b>A:</b> ${q.a}</p>
-                    <p style="font-size:12px; margin:0 0 10px 0;"><b>B:</b> ${q.b}</p>
-                    <button class="btn ${isActive ? 'btn-outline' : 'btn-cyan'} btn-small" onclick="toggleQuestion('${q.id}', ${!isActive})">${btnTxt}</button>
+                    <div style="display:flex; align-items:flex-start;">
+                        <input type="checkbox" class="q-toggle-cb" value="${q.id}" ${isActive ? 'checked' : ''} style="width:20px; height:20px; margin-right:15px; margin-top:5px; accent-color: var(--pink); cursor:pointer;">
+                        <div style="flex:1;">
+                            ${badge}
+                            <p style="font-size:12px; margin:5px 0;"><b>A:</b> ${q.a}</p>
+                            <p style="font-size:12px; margin:0 0 5px 0;"><b>B:</b> ${q.b}</p>
+                        </div>
+                        ${deleteBtn}
+                    </div>
                 `;
                 listDiv.appendChild(div);
             });
         }
 
-        window.toggleQuestion = async function(qId, setToActive) {
-            await setDoc(doc(db, 'settings', 'toggles'), { [qId]: setToActive }, {merge: true});
-            loadAdminDashboard(); // refresh list
+        window.selectAllQuestions = function(selectStatus) {
+            document.querySelectorAll('.q-toggle-cb').forEach(cb => cb.checked = selectStatus);
+        }
+
+        window.saveQuestionToggles = async function() {
+            const btn = document.getElementById('btn-save-toggles');
+            btn.innerText = "⏳ MENYIMPAN...";
+            let newToggles = {};
+            document.querySelectorAll('.q-toggle-cb').forEach(cb => {
+                newToggles[cb.value] = cb.checked;
+            });
+            await setDoc(doc(db, 'settings', 'toggles'), newToggles);
+            showAlert("Semua status soal berhasil disimpan!");
+            btn.innerText = "💾 SIMPAN STATUS SOAL";
+            loadAdminDashboard(); // Refresh tampilan untuk update warna indikator (hijau/merah)
+        }
+
+        window.deleteCustomQuestion = async function(qId) {
+            if(confirm("Yakin ingin menghapus soal ini secara permanen dari database?")) {
+                await deleteDoc(doc(db, 'custom_questions', qId));
+                showAlert("Soal berhasil dihapus!");
+                loadAdminDashboard();
+            }
+        }
+
+        window.saveAmnesiaSetting = async function() {
+            const isChecked = document.getElementById('toggle-amnesia').checked;
+            await setDoc(doc(db, 'settings', 'global'), { amnesiaEnabled: isChecked }, {merge:true});
         }
 
         window.saveAdminSettings = async function() {
@@ -481,7 +551,7 @@
             await setDoc(roomRef, {
                 status: 'lobby', hostId: currentUser.uid,
                 players: { [currentUser.uid]: { name: name } },
-                qNormal: "", qImposter: "", imposterId: null,
+                qNormal: "", qImposter: "", imposterId: null, amnesiaId: null,
                 answers: {}, votes: {}, discussionEndTime: 0
             });
 
@@ -642,8 +712,19 @@
             const playerIds = Object.keys(localRoomData.players);
             const imposterId = playerIds[Math.floor(Math.random() * playerIds.length)];
 
+            const globalRef = doc(db, 'settings', 'global');
+            const snap = await getDoc(globalRef);
+            let useAmnesia = false;
+            if (snap.exists() && snap.data().amnesiaEnabled) useAmnesia = true;
+
+            let amnesiaId = null;
+            if (useAmnesia && playerIds.length >= 4) {
+                let remainingPlayers = playerIds.filter(id => id !== imposterId);
+                amnesiaId = remainingPlayers[Math.floor(Math.random() * remainingPlayers.length)];
+            }
+
             await updateDoc(doc(db, 'rooms', currentRoomCode), {
-                status: 'answering', imposterId: imposterId,
+                status: 'answering', imposterId: imposterId, amnesiaId: amnesiaId,
                 qNormal: finalNormal, qImposter: finalImposter,
                 answers: {}, votes: {}
             });
@@ -655,7 +736,30 @@
             document.getElementById('btn-submit-answer').style.display = 'block';
             document.getElementById('waiting-answer-text').style.display = 'none';
             
-            const myQuestion = (currentUser.uid === data.imposterId) ? data.qImposter : data.qNormal;
+            const titleEl = document.getElementById('question-title');
+            const subtitleEl = document.getElementById('question-subtitle');
+            let myQuestion = "";
+            
+            if (currentUser.uid === data.amnesiaId) {
+                myQuestion = "???";
+                titleEl.innerText = "KAMU ADALAH AMNESIA!";
+                titleEl.style.color = "var(--orange)";
+                subtitleEl.innerText = "Kamu tidak mendapat pertanyaan! Tebak konteks dari jawaban orang lain nanti.";
+                subtitleEl.style.color = "var(--orange)";
+            } else if (currentUser.uid === data.imposterId) {
+                myQuestion = data.qImposter;
+                titleEl.innerText = "PERTANYAAN RAHASIAMU (IMPOSTER):";
+                titleEl.style.color = "var(--pink)";
+                subtitleEl.innerText = "Ssst! Jangan beritahu pemain lain!";
+                subtitleEl.style.color = "var(--pink)";
+            } else {
+                myQuestion = data.qNormal;
+                titleEl.innerText = "PERTANYAAN RAHASIAMU:";
+                titleEl.style.color = "var(--text-sub)";
+                subtitleEl.innerText = "Ssst! Jangan beritahu pemain lain!";
+                subtitleEl.style.color = "var(--pink)";
+            }
+
             document.getElementById('display-question').innerText = myQuestion;
             
             switchScreen('screen-question');
@@ -766,15 +870,42 @@
 
         function transitionToResult(data) {
             const imposterUid = data.imposterId;
+            const amnesiaUid = data.amnesiaId;
+            
             document.getElementById('result-imposter-name').innerText = data.players[imposterUid] ? data.players[imposterUid].name : 'Keluar';
+            
+            const amnesiaLabel = document.getElementById('result-amnesia-label');
+            const amnesiaName = document.getElementById('result-amnesia-name');
+            if (amnesiaUid) {
+                amnesiaLabel.style.display = 'block';
+                amnesiaName.style.display = 'block';
+                amnesiaName.innerText = data.players[amnesiaUid] ? data.players[amnesiaUid].name : 'Keluar';
+            } else {
+                amnesiaLabel.style.display = 'none';
+                amnesiaName.style.display = 'none';
+            }
+            
             document.getElementById('result-civilian-question').innerText = data.qNormal;
             document.getElementById('result-imposter-question').innerText = data.qImposter;
             
             let myVote = data.votes ? data.votes[currentUser.uid] : null;
             const title = document.getElementById('result-title');
-            if (myVote === imposterUid) { title.innerText = "🎉 TEBAKANMU BENAR!"; title.style.color = "var(--cyan)"; } 
-            else if (currentUser.uid === imposterUid) { title.innerText = "😈 KAMU KETAHUAN!"; title.style.color = "var(--pink)"; } 
-            else { title.innerText = "💀 TEBAKANMU SALAH!"; title.style.color = "var(--pink)"; }
+            
+            if (currentUser.uid === imposterUid) { 
+                title.innerText = "😈 KAMU KETAHUAN!"; title.style.color = "var(--pink)"; 
+            } else if (currentUser.uid === amnesiaUid) {
+                if (myVote === imposterUid) {
+                    title.innerText = "🤯 AMNESIA MENEBAK BENAR!"; title.style.color = "var(--orange)";
+                } else {
+                    title.innerText = "😵 AMNESIA BINGUNG!"; title.style.color = "var(--orange)";
+                }
+            } else {
+                if (myVote === imposterUid) { 
+                    title.innerText = "🎉 TEBAKANMU BENAR!"; title.style.color = "var(--cyan)"; 
+                } else { 
+                    title.innerText = "💀 TEBAKANMU SALAH!"; title.style.color = "var(--pink)"; 
+                }
+            }
 
             const voteCounts = {};
             for (const uid in data.votes) voteCounts[data.votes[uid]] = (voteCounts[data.votes[uid]] || 0) + 1;
