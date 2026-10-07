@@ -131,6 +131,17 @@
         </div>
     </div>
 
+    <!-- CONFIRM MODAL -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-box">
+            <p id="confirmMessage" style="margin-bottom: 20px; font-weight: bold;"></p>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-pink" onclick="executeConfirm()" style="flex:1; margin-bottom: 0;">YA</button>
+                <button class="btn btn-outline" onclick="closeConfirm()" style="flex:1; margin-bottom: 0;">BATAL</button>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
 
         <!-- SCREEN 1: LOBBY -->
@@ -364,6 +375,23 @@
         window.closeAlert = function() {
             document.getElementById('customAlert').style.display = 'none';
         }
+
+        // --- SISTEM KONFIRMASI CUSTOM ---
+        let confirmAction = null;
+        window.showConfirm = function(msg, action) {
+            document.getElementById('confirmMessage').innerText = msg;
+            confirmAction = action;
+            document.getElementById('confirmModal').style.display = 'flex';
+        }
+        window.closeConfirm = function() {
+            document.getElementById('confirmModal').style.display = 'none';
+            confirmAction = null;
+        }
+        window.executeConfirm = function() {
+            if(confirmAction) confirmAction();
+            closeConfirm();
+        }
+
         window.switchScreen = function(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
@@ -494,15 +522,15 @@
             await setDoc(doc(db, 'settings', 'toggles'), newToggles);
             showAlert("Semua status soal berhasil disimpan!");
             btn.innerText = "💾 SIMPAN STATUS SOAL";
-            loadAdminDashboard(); // Refresh tampilan untuk update warna indikator (hijau/merah)
+            loadAdminDashboard(); 
         }
 
-        window.deleteCustomQuestion = async function(qId) {
-            if(confirm("Yakin ingin menghapus soal ini secara permanen dari database?")) {
+        window.deleteCustomQuestion = function(qId) {
+            showConfirm("Yakin ingin menghapus soal ini secara permanen dari database?", async () => {
                 await deleteDoc(doc(db, 'custom_questions', qId));
                 showAlert("Soal berhasil dihapus!");
                 loadAdminDashboard();
-            }
+            });
         }
 
         window.saveAmnesiaSetting = async function() {
@@ -557,6 +585,7 @@
 
             document.getElementById('display-room-code').innerText = currentRoomCode;
             switchScreen('screen-waiting');
+            updateHostUI(); // PERBAIKAN: Paksa UI langsung menjadi Host tanpa delay
             listenToRoom(currentRoomCode);
         };
 
@@ -609,12 +638,16 @@
             }
         }
 
-        window.takeoverHost = async function() {
-            if(confirm("Ambil alih posisi Host?")) await updateDoc(doc(db, 'rooms', currentRoomCode), { hostId: currentUser.uid });
+        window.takeoverHost = function() {
+            showConfirm("Yakin ingin mengambil alih posisi Host?", async () => {
+                await updateDoc(doc(db, 'rooms', currentRoomCode), { hostId: currentUser.uid });
+            });
         };
 
-        window.kickPlayer = async function(uid) {
-            if(confirm("Keluarkan pemain ini?")) await updateDoc(doc(db, 'rooms', currentRoomCode), { [`players.${uid}`]: deleteField() });
+        window.kickPlayer = function(uid) {
+            showConfirm("Keluarkan pemain ini?", async () => {
+                await updateDoc(doc(db, 'rooms', currentRoomCode), { [`players.${uid}`]: deleteField() });
+            });
         };
 
         function listenToRoom(code) {
@@ -778,16 +811,16 @@
             await updateDoc(doc(db, 'rooms', currentRoomCode), { [`answers.${currentUser.uid}`]: ans });
         };
 
-        window.forceFinishAnswering = async function() {
-            if(confirm("Tarik paksa? Pemain yang belum jawab akan terlewat.")) {
+        window.forceFinishAnswering = function() {
+            showConfirm("Tarik paksa? Pemain yang belum jawab akan terlewat.", async () => {
                 await updateDoc(doc(db, 'rooms', currentRoomCode), { status: 'discussion', discussionEndTime: Date.now() + (defaultDiscussionTime * 1000) });
-            }
+            });
         };
 
-        window.resetToLobby = async function() {
-            if(confirm("Reset game? Semua akan dikembalikan ke ruang tunggu.")) {
+        window.resetToLobby = function() {
+            showConfirm("Reset game? Semua akan dikembalikan ke ruang tunggu.", async () => {
                 await updateDoc(doc(db, 'rooms', currentRoomCode), { status: 'lobby' });
-            }
+            });
         };
 
         function transitionToDiscussion(data) {
@@ -864,8 +897,10 @@
             await updateDoc(doc(db, 'rooms', currentRoomCode), { [`votes.${currentUser.uid}`]: suspectUid });
         };
 
-        window.forceFinishVoting = async function() {
-            if(confirm("Paksa selesai voting?")) await updateDoc(doc(db, 'rooms', currentRoomCode), { status: 'result' });
+        window.forceFinishVoting = function() {
+            showConfirm("Paksa selesai voting?", async () => {
+                await updateDoc(doc(db, 'rooms', currentRoomCode), { status: 'result' });
+            });
         }
 
         function transitionToResult(data) {
